@@ -5,5 +5,4 @@ default: &default
 
 development:
   <<: *default
-  database: 'db/development.sqlite'
-
+  database: 'db/quiz.db'
