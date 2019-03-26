@@ -57,7 +57,6 @@ class Ui
       addto_leaderboard(false)
     end
     @questions << @random
-    show_question
   end
 
 end
