@@ -8,6 +8,7 @@ end
 
 desc 'Start our app'
 task :run do
-  Ui.welcome
-  Ui.display_question
+  session = Ui.new
+  session.welcome
+  session.handle_question
 end
