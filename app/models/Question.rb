@@ -2,8 +2,8 @@ class Question < ActiveRecord::Base
   has_many :leaderboards
   has_many :users, through: :leaderboards
 
-  def self.get_questions
-    response = RestClient.get('https://opentdb.com/api.php?amount=50&category=9&difficulty=medium&type=multiple')
+  def self.get_questions(level)
+    response = RestClient.get("https://opentdb.com/api.php?amount=40&category=9&difficulty=#{level}&type=multiple")
     data = JSON.parse(response)
 
     data["results"].each do |t|
