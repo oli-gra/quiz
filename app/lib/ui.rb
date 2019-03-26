@@ -3,12 +3,16 @@ class Ui
   def initialize
     puts `clear`
     @prompt = TTY::Prompt.new
-    @progress = TTY::ProgressBar.new("Questions [:bar]", total: 10)
+    @progress = TTY::ProgressBar.new("Moare [:bar]\n", output: $stdout, total: 10)
     @questions = []
   end
 
-  def welcome
+  def header
     @prompt.say 'Quiz head-to-head and claim victory over your friends'
+  end
+
+  def welcome
+    header
     name = @prompt.ask 'What is your name ?'
     User.find_or_create_by(name: name)
     @user = User.find_by(name: name)
@@ -20,8 +24,7 @@ class Ui
   end
 
   def show_progress
-    puts `clear`
-    @prompt.say @progress.advance
+    @progress.advance
   end
 
   def show_question
@@ -32,10 +35,9 @@ class Ui
         @random.wrong_1,
         @random.wrong_2,
         @random.wrong_3].shuffle
-      # TODO check an array that question hasn't already been asked user this session
       show_progress
       @prompt.select(@random.question, choices)
-    else
+    elsif @progress.current < 9
       show_question
     end
   end
@@ -48,15 +50,40 @@ class Ui
     @board.save
   end
 
-  def handle_question
-    if show_question == @random.answer
-      @prompt.ok 'Right!'
-      addto_leaderboard(true)
+  def goodbye
+    @prompt.say 'Bye!'
+  end
+
+  def new_game?
+    if @prompt.yes?('Another game?')
+      session = Ui.new
+      header
+      session.handle_question
     else
-      @prompt.error 'Uh, oh.'
-      addto_leaderboard(false)
+      goodbye
     end
-    @questions << @random
+  end
+
+  def show_stats
+    session = Leaderboard.where(user_id: @user.id).order(updated_at: :desc).limit(@questions.count)
+    seconds = session.first.updated_at - session.last.updated_at
+    right = session.select{|q|q.result == true}.count
+    @prompt.say "Ace! #{right}/#{@questions.count} right in #{seconds.round(0)} seconds"
+    new_game?
+  end
+
+  def handle_question
+    until @progress.complete?
+      if show_question == @random.answer
+        @prompt.ok 'Right!'
+        addto_leaderboard(true)
+      else
+        @prompt.error ":-( right answer is #{@random.answer}"
+        addto_leaderboard(false)
+      end
+      @questions << @random
+    end
+    show_stats
   end
 
 end
