@@ -49,18 +49,14 @@ class Ui
   end
 
   def handle_question
-    while @progress.current < 10
-          if show_question == @random.answer
-          @prompt.ok 'Right!'
-          addto_leaderboard(true)
-        else
-          @prompt.error 'Uh, oh.'
-          addto_leaderboard(false)
-        end
-        @questions << @random
-      end
-      
+    if show_question == @random.answer
+      @prompt.ok 'Right!'
+      addto_leaderboard(true)
+    else
+      @prompt.error 'Uh, oh.'
+      addto_leaderboard(false)
     end
-    
+    @questions << @random
+  end
 
 end
