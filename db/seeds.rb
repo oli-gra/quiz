@@ -1,2 +1,4 @@
+User.destroy_all
 Question.destroy_all
+Leaderboard.destroy_all
 Question.get_questions

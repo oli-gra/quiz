@@ -1,4 +1,3 @@
-
 source 'https://rubygems.org'
 
 gem 'activerecord'
@@ -18,4 +17,3 @@ gem 'whirly'
 gem 'paint'
 gem 'colorize'
 gem 'htmlentities', '~> 4.3', '>= 4.3.4'
-
