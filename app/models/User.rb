@@ -1,7 +1,7 @@
 class User < ActiveRecord::Base
   has_many :leaderboards
   has_many :questions, through: :leaderboards
-
+ 
   def print_result
     puts "Your Pass ratio #{result}%"
   end
