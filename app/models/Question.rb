@@ -1,17 +1,21 @@
 class Question < ActiveRecord::Base
+  has_many :users
+  has_many :leaderboards
+  has_many :users, through: :leaderboards
 
     def self.get_questions
-        url = 'https://opentdb.com/api.php?amount=50&category=9&difficulty=medium&type=multiple'
+        response = RestClient.get('https://opentdb.com/api.php?amount=50&category=9&difficulty=medium&type=multiple')
         data = JSON.parse(response)
 
         data["results"].each do |t|
           Question.find_or_create_by(
             category: t["category"], 
-            type: t["type"],
             difficulty: t["difficulty"], 
             question: t["question"],
-            correct_answer: t["correct_answer"], 
-            incorrect_answers: t["correct_answer"], 
+            answer: t["correct_answer"], 
+            wrong_1: t["incorrect_answers"][0], 
+            wrong_2: t["incorrect_answers"][1],
+            wrong_3: t["incorrect_answers"][2])
             
         end
       end
