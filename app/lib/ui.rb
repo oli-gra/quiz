@@ -3,20 +3,28 @@ class Ui
   def initialize
     puts `clear`
     @prompt = TTY::Prompt.new
-    @progress = TTY::ProgressBar.new("Moare [:bar]\n", output: $stdout, total: 10)
+    @progress = TTY::ProgressBar.new("Keep it up [:bar]\n", output: $stdout, total: 10)
     @questions = []
   end
 
   def header
-    @prompt.say 'Quiz head-to-head and claim victory over your friends'
+    @prompt.say "
+    ██████╗ ██╗   ██╗██╗███████╗
+   ██╔═══██╗██║   ██║██║╚══███╔╝    head-to-head
+   ██║   ██║██║   ██║██║  ███╔╝     and claim
+   ██║▄▄ ██║██║   ██║██║ ███╔╝      victory over
+   ╚██████╔╝╚██████╔╝██║███████╗    your friends
+    ╚══▀▀═╝  ╚═════╝ ╚═╝╚══════╝
+
+    "
   end
 
   def welcome
     header
     name = @prompt.ask 'What is your name ?'
-    User.find_or_create_by(name: name)
-    @user = User.find_by(name: name)
-    @prompt.say "Good luck #{@user.name}!"
+    @user = User.find_or_create_by(name: name)
+    @prompt.say "Good luck #{@user.name.upcase}!"
+    @@last_user = @user
   end
 
   def self.show_leaderboard
@@ -27,18 +35,31 @@ class Ui
     @progress.advance
   end
 
+  def difficulty
+    if @session_ratio >85
+      @random = Question.where(difficulty: 'hard')[rand(40)]
+    elsif @session_ratio >60
+      @random = Question.where(difficulty: 'medium')[rand(40)]
+    else
+      @random = Question.where(difficulty: 'easy')[rand(40)]
+    end
+  end
+
   def show_question
-    @random = Question.all[rand(Question.all.size)]
-    if @questions.include?(@random) == false
+    if difficulty && @questions.include?(@random) == false
       choices = [
         @random.answer,
         @random.wrong_1,
         @random.wrong_2,
         @random.wrong_3].shuffle
+      puts "\n"
       show_progress
       @prompt.select(@random.question, choices)
-    elsif @progress.current < 9
+    elsif @progress.current < 9 && @questions.count < 40
       show_question
+    else
+      @prompt.say 'We are exhausted. Why not take a break.'
+      goodbye
     end
   end
 
@@ -51,34 +72,31 @@ class Ui
   end
 
   def goodbye
-    @prompt.say 'Bye!'
+    @prompt.error 'Bye!'
   end
 
   def new_game?
     if @prompt.yes?('Another game?')
-      session = Ui.new
-      header
-      session.handle_question
+      handle_question
     else
       goodbye
     end
   end
 
   def show_stats
-    session = Leaderboard.where(user_id: @user.id).order(updated_at: :desc).limit(@questions.count)
-    seconds = session.first.updated_at - session.last.updated_at
-    right = session.select{|q|q.result == true}.count
-    @prompt.say "Ace! #{right}/#{@questions.count} right in #{seconds.round(0)} seconds"
+    puts "\n"
+    @prompt.say "#{@user.result[:right]}/10 in #{@user.result[:seconds]}s. Your hit rate is #{@user.result[:ratio]}% overall."
     new_game?
   end
 
   def handle_question
+    @session_ratio = @user.result[:ratio]
     until @progress.complete?
       if show_question == @random.answer
         @prompt.ok 'Right!'
         addto_leaderboard(true)
       else
-        @prompt.error ":-( right answer is #{@random.answer}"
+        @prompt.error ":-( try #{@random.answer}"
         addto_leaderboard(false)
       end
       @questions << @random
