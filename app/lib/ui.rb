@@ -7,30 +7,91 @@ class Ui
     @questions = []
   end
 
+  #
+  #   Print :: $stdout stuff
+  #
+
   def header
     @prompt.say "
-    ██████╗  ██╗   ██╗ ██╗ ███████╗
-   ██╔═══██╗ ██║   ██║ ██║ ╚══███╔╝    head-to-head
-   ██║   ██║ ██║   ██║ ██║   ███╔╝     and claim
-   ██║▄▄ ██║ ██║   ██║ ██║  ███╔╝      victory over
-   ╚██████╔╝ ╚██████╔╝ ██║ ███████╗    your friends
-    ╚══▀▀═╝   ╚═════╝  ╚═╝ ╚══════╝
-    "
+ ██████╗  ██╗   ██╗ ██╗ ███████╗
+██╔═══██╗ ██║   ██║ ██║ ╚══███╔╝    head-to-head
+██║   ██║ ██║   ██║ ██║   ███╔╝     and claim
+██║▄▄ ██║ ██║   ██║ ██║  ███╔╝      victory over
+╚██████╔╝ ╚██████╔╝ ██║ ███████╗    your friends
+ ╚═▀▀══╝   ╚═════╝  ╚═╝ ╚══════╝
+    \n"
   end
 
   def welcome
-    header
     name = @prompt.ask 'What is your name ?'
     @@user = User.find_or_create_by(name: name)
     @prompt.say "Good luck #{@@user.name.upcase}!"
   end
 
-  def self.show_leaderboard
-    # TODO set display top 5 results + time
+  def goodbye
+    @prompt.error 'Bye!'
   end
 
   def show_progress
+    puts "\n"
     @progress.advance
+  end
+
+  def show_stats
+    puts "\n"
+    @prompt.say "#{@@user.result[:right]}/10 in #{@@user.result[:seconds]}s.Your hit rate is #{@@user.result[:ratio]}% overall."
+  end
+
+  def show_question
+    if difficulty && @questions.include?(@random) == false
+      show_progress
+      choices = [@random.answer, @random.wrong_1, @random.wrong_2, @random.wrong_3].shuffle
+      @prompt.select(@random.question, choices)
+    elsif @progress.current < 9 && @questions.count < 40
+      show_question
+    else
+      @questions = []
+      show_question
+    end
+  end
+
+  def show_leaderboard
+  end
+
+  #
+  #   CRUD :: addto_leaderboard=create delete_user=delete clear_data=destroy
+  #
+
+  def add_leaderboard(result)
+    Leaderboard.create(question_id: @random.id, user_id: @@user.id, result: result)
+  end
+
+  def delete_user
+    User.delete(@@user.id)
+    @prompt.error 'Profile deleted!'
+  end
+
+  def clear_data
+    Leaderboard.where(user:@@user).destroy_all
+    @prompt.ok 'Results cleared!'
+  end
+
+  def edit_name
+    new_name = @prompt.ask "Change #{@@user.name} to:"
+    User.find_by(name: @@user.name).update(name: new_name)
+    @@user = User.find_by(name: new_name)
+    @prompt.ok 'Name changed!'
+  end
+
+  #
+  #   Game logic :: new_game=init difficulty=setter new_game?=menu handle_question=loop
+  #
+
+  def new_game(new_user)
+    session = Ui.new
+    session.header
+    session.welcome if new_user
+    session.handle_question
   end
 
   def difficulty
@@ -43,60 +104,21 @@ class Ui
     end
   end
 
-  def show_question
-    if difficulty && @questions.include?(@random) == false
-      choices = [
-        @random.answer,
-        @random.wrong_1,
-        @random.wrong_2,
-        @random.wrong_3].shuffle
-      puts "\n"
-      show_progress
-      @prompt.select(@random.question, choices)
-    elsif @progress.current < 9 && @questions.count < 40
-      show_question
-    else
-      @prompt.say 'We are exhausted. Why not take a break.'
-      new_game?
-    end
-  end
-
-  def addto_leaderboard(result)
-    @board = Leaderboard.new
-    @board.question_id = @random.id
-    @board.user_id = @@user.id
-    @board.result = result
-    @board.save
-  end
-
-  def goodbye
-    @prompt.error 'Bye!'
-  end
-
   def new_game?
-      choices = ['new game', 'leaderboard', 'clear results', 'delete profile', 'exit']
+      choices = ['new game', 'edit profile', 'leaderboard', 'clear results', 'delete profile']
       case @prompt.select('What do you want to do next!?', choices)
       when 'new game'
-        session = Ui.new
-        session.header
-        session.handle_question
+        new_game(false)
+      when 'edit profile'
+        edit_name
+        new_game?
       when 'clear results'
-        Leaderboard.where(user:@@user).destroy_all
+        clear_data
         new_game?
       when 'delete profile'
-        User.delete(@@user.id)
-        session = Ui.new
-        session.welcome
-        session.handle_question
-      when 'exit'
-        goodbye
+        delete_user
+        new_game(true)
       end
-  end
-
-  def show_stats
-    puts "\n"
-    @prompt.say "#{@@user.result[:right]}/10 in #{@@user.result[:seconds]}s. Your hit rate is #{@@user.result[:ratio]}% overall."
-    new_game?
   end
 
   def handle_question
@@ -104,14 +126,15 @@ class Ui
     until @progress.complete?
       if show_question == @random.answer
         @prompt.ok 'Right!'
-        addto_leaderboard(true)
+        add_leaderboard(true)
       else
-        @prompt.error ":-( try #{@random.answer}"
-        addto_leaderboard(false)
+        @prompt.error "Close, try #{@random.answer}"
+        add_leaderboard(false)
       end
       @questions << @random
     end
     show_stats
+    new_game?
   end
 
 end
