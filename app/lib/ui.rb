@@ -9,22 +9,20 @@ class Ui
 
   def header
     @prompt.say "
-    ██████╗ ██╗   ██╗██╗███████╗
-   ██╔═══██╗██║   ██║██║╚══███╔╝    head-to-head
-   ██║   ██║██║   ██║██║  ███╔╝     and claim
-   ██║▄▄ ██║██║   ██║██║ ███╔╝      victory over
-   ╚██████╔╝╚██████╔╝██║███████╗    your friends
-    ╚══▀▀═╝  ╚═════╝ ╚═╝╚══════╝
-
+    ██████╗  ██╗   ██╗ ██╗ ███████╗
+   ██╔═══██╗ ██║   ██║ ██║ ╚══███╔╝    head-to-head
+   ██║   ██║ ██║   ██║ ██║   ███╔╝     and claim
+   ██║▄▄ ██║ ██║   ██║ ██║  ███╔╝      victory over
+   ╚██████╔╝ ╚██████╔╝ ██║ ███████╗    your friends
+    ╚══▀▀═╝   ╚═════╝  ╚═╝ ╚══════╝
     "
   end
 
   def welcome
     header
     name = @prompt.ask 'What is your name ?'
-    @user = User.find_or_create_by(name: name)
-    @prompt.say "Good luck #{@user.name.upcase}!"
-    @@last_user = @user
+    @@user = User.find_or_create_by(name: name)
+    @prompt.say "Good luck #{@@user.name.upcase}!"
   end
 
   def self.show_leaderboard
@@ -59,14 +57,14 @@ class Ui
       show_question
     else
       @prompt.say 'We are exhausted. Why not take a break.'
-      goodbye
+      new_game?
     end
   end
 
   def addto_leaderboard(result)
     @board = Leaderboard.new
     @board.question_id = @random.id
-    @board.user_id = @user.id
+    @board.user_id = @@user.id
     @board.result = result
     @board.save
   end
@@ -76,21 +74,33 @@ class Ui
   end
 
   def new_game?
-    if @prompt.yes?('Another game?')
-      handle_question
-    else
-      goodbye
-    end
+      choices = ['new game', 'leaderboard', 'clear results', 'delete profile', 'exit']
+      case @prompt.select('What do you want to do next!?', choices)
+      when 'new game'
+        session = Ui.new
+        session.header
+        session.handle_question
+      when 'clear results'
+        Leaderboard.where(user:@@user).destroy_all
+        new_game?
+      when 'delete profile'
+        User.delete(@@user.id)
+        session = Ui.new
+        session.welcome
+        session.handle_question
+      when 'exit'
+        goodbye
+      end
   end
 
   def show_stats
     puts "\n"
-    @prompt.say "#{@user.result[:right]}/10 in #{@user.result[:seconds]}s. Your hit rate is #{@user.result[:ratio]}% overall."
+    @prompt.say "#{@@user.result[:right]}/10 in #{@@user.result[:seconds]}s. Your hit rate is #{@@user.result[:ratio]}% overall."
     new_game?
   end
 
   def handle_question
-    @session_ratio = @user.result[:ratio]
+    @session_ratio = @@user.result[:ratio]
     until @progress.complete?
       if show_question == @random.answer
         @prompt.ok 'Right!'
